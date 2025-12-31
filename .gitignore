@@ -18,6 +18,7 @@ src/main/java/eventee/server/event/global
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
+.yml
 
 ### IntelliJ IDEA ###
 .idea
