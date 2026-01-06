@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -38,6 +40,7 @@ public class GameServiceImpl implements GameService{
                 .eventId(eventId)
                 .gameType(GameType.CANNON).build();
         gameRepository.save(game);
+        gameEventPublisher.publishRSPResult(eventId,nickname);
     }
 
     public void startRPS(RPS.StartGameDto request){
@@ -52,97 +55,124 @@ public class GameServiceImpl implements GameService{
         GameRuntimeState state = initState(game,request.players(),request.leader());
 
         runtimeRepository.save(state);
-        gameEventPublisher.publishRoundStart(game.getGameId(), state);
+        gameEventPublisher.publishRoundStart(game.getEventId(), state);
     }
 
     public void playRPS(RPS.GamePlayDto request) {
         Game game = loadGameById(request.gameId());
 
-        GameRuntimeState state =
+        GameRuntimeState beforeGame =
                 runtimeRepository.find(game.getGameId());
 
-        if (state == null) {
-            state = initState(game, request.players(),request.leader());
+        if (beforeGame == null) {
+            log.info(" state 발견 모샇ㅁ");
+            beforeGame = initState(game, request.players(),request.leader());
+        }else{
+            log.info("state 발견함.");
         }
 
         List<RPS.PlayerDto> survivors =
-                calculateSurvivors(request);
+                calculateSurvivors(request,beforeGame.getCurrentPlayers());
 
-        handleRoundResult(game, state, survivors);
+        log.info("승리자 복록");
+        for(RPS.PlayerDto player : survivors){
+            log.info(player.nickname());
+        }
+
+        handleRoundResult(game, beforeGame, survivors);
     }
 
-    private List<RPS.PlayerDto> calculateSurvivors(RPS.GamePlayDto request) {
+    private List<RPS.PlayerDto> calculateSurvivors(RPS.GamePlayDto request,List<RPS.PlayerDto> players) {
+
+        Set<Long> allowedIds = players.stream()
+                .map(RPS.PlayerDto::memberId)
+                .collect(Collectors.toSet());
+
         return request.players().stream()
                 .filter(player ->
-                        player.type().isWin(request.leader().type()))
+                        (allowedIds.contains(player.memberId()))&&
+                        (player.type().isWin(request.leader().type())))
                 .toList();
     }
 
     private void handleRoundResult(
             Game game,
-            GameRuntimeState state,
+            GameRuntimeState beforeGame,
             List<RPS.PlayerDto> survivors
     ) {
-        int alreadyConfirmed = state.getConfirmedWinners().size();
+        int alreadyConfirmed = beforeGame.getConfirmedWinners().size();
         int needed = game.getWinnerCnt() - alreadyConfirmed;
+        log.info("alreadyConfirmed:"+alreadyConfirmed+" needed:"+needed+" 이긴 사람 수 :"+survivors.size());
 
-        if (survivors.isEmpty()) {
-            handleNoSurvivor(game, state);
-        }
-        else if (survivors.size() < needed) {
-            handleInsufficientWinners(game, state, survivors);
+        if (survivors.size() == needed) {
+            finishRPS(survivors, beforeGame, game);
+        }else if(survivors.size() < needed){
+            handleInsufficientWinners(game, beforeGame, survivors);
+        }else{
+            handleNoSurvivor(game,beforeGame);
         }
 
-        else if (survivors.size() == needed) {
-            finishRPS(survivors,state,game);
-        }
+
     }
 
-    private void handleNoSurvivor(Game game, GameRuntimeState state) {
-        GameRuntimeState prev =
-                runtimeRepository.find(game.getGameId());
+    private void handleNoSurvivor(Game game, GameRuntimeState beforeGame) {
 
-        int nextRound = prev == null ? 1 : prev.getRound() + 1;
+        beforeGame.setRound(beforeGame.getRound() + 1);
+        beforeGame.setStatus(GameRuntimeState.Status.REMATCH);
 
-        state.setRound(nextRound);
-        state.setCurrentPlayers(state.getCurrentPlayers());
-        state.setStatus(GameRuntimeState.Status.REMATCH);
-        runtimeRepository.save(state);
-        gameEventPublisher.publishRoundStart(game.getGameId(), state);
+        runtimeRepository.save(beforeGame);
+        gameEventPublisher.publishRoundStart(game.getEventId(), beforeGame);
     }
 
     private void handleInsufficientWinners(
             Game game,
-            GameRuntimeState state,
+            GameRuntimeState beforeGame,
             List<RPS.PlayerDto> survivors
     ) {
-        state.getConfirmedWinners().addAll(survivors);
 
-        state.setRound(state.getRound() + 1);
-        state.setCurrentPlayers(
-                state.getCurrentPlayers().stream()
-                        .filter(p -> !survivors.contains(p))
+        Set<Long> survivorIds = survivors.stream()
+                .map(RPS.PlayerDto::memberId)
+                .collect(Collectors.toSet());
+
+        List<RPS.PlayerDto> updatedWinners =
+                new ArrayList<>(beforeGame.getConfirmedWinners());
+        updatedWinners.addAll(survivors);
+        beforeGame.setConfirmedWinners(updatedWinners);
+
+        beforeGame.setRound(beforeGame.getRound() + 1);
+        beforeGame.setCurrentPlayers(
+                beforeGame.getCurrentPlayers().stream()
+                        .filter(p -> !survivorIds.contains(p.memberId()))
                         .toList()
         );
 
-        state.setStatus(GameRuntimeState.Status.IN_PROGRESS);
-
-        runtimeRepository.save(state);
-        gameEventPublisher.publishRoundStart(game.getGameId(), state);
+        beforeGame.setStatus(GameRuntimeState.Status.IN_PROGRESS);
+        log.info("beforeGame:"+beforeGame.toString());
+        runtimeRepository.save(beforeGame);
+        gameEventPublisher.publishRoundStart(game.getEventId(), beforeGame);
     }
 
-    private void finishRPS(List<RPS.PlayerDto> survivors, GameRuntimeState state,Game game){
+    private void finishRPS(List<RPS.PlayerDto> survivors, GameRuntimeState beforeGame,Game game){
         String winner = "";
         for(RPS.PlayerDto p : survivors){
-            winner += ("p_"+p.nickname());
+            winner += ("p_"+p.nickname()+",");
         }
         game.setWinner(winner);
+        log.info("winner:"+winner);
         gameRepository.save(game);
+
+        beforeGame.setStatus(GameRuntimeState.Status.FINISHED);
+        beforeGame.setRound(beforeGame.getRound() + 1);
+
+        List<RPS.PlayerDto> updatedWinners =
+                new ArrayList<>(beforeGame.getConfirmedWinners());
+        updatedWinners.addAll(survivors);
+        beforeGame.setConfirmedWinners(updatedWinners);
 
         runtimeRepository.delete(game.getGameId());
         gameEventPublisher.publishGameFinished(
-                game.getGameId(),
-                state.getConfirmedWinners()
+                game.getEventId(),
+                beforeGame
         );
     }
 
@@ -159,7 +189,7 @@ public class GameServiceImpl implements GameService{
     ) {
         GameRuntimeState state = GameRuntimeState.builder()
                 .gameId(game.getGameId())
-                .round(1)
+                .round(0)
                 .confirmedWinners(new ArrayList<>())
                 .currentPlayers(players)
                 .leader(leader)

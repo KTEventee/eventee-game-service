@@ -1,5 +1,6 @@
 package eventee.server.game.domain.model;
 
+import eventee.server.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -14,7 +15,7 @@ import org.hibernate.annotations.SQLRestriction;
 @Table(name = "game")
 @SQLDelete(sql = "UPDATE game SET is_deleted = true, deleted_at = now() where comment_id = ?")
 @SQLRestriction("is_deleted is FALSE")
-public class Game {
+public class Game extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "game_id")

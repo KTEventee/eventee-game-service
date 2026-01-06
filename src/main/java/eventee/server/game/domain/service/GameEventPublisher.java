@@ -15,23 +15,33 @@ public class GameEventPublisher {
 
     private final SimpMessagingTemplate messagingTemplate;
 
+    public void publishRSPResult(
+            Long eventId,
+            String nickname
+    ){
+        messagingTemplate.convertAndSend(
+                "/sub/game/" + eventId + "/result",
+                nickname
+        );
+    }
+
     public void publishRoundStart(
-            Long gameId,
+            Long eventId,
             GameRuntimeState state
     ) {
         messagingTemplate.convertAndSend(
-                "/sub/game/" + gameId + "/round",
-                RoundEvent.roundStart(gameId, state)
+                "/sub/game/" + eventId + "/start",
+                RoundEvent.roundStart(eventId, state)
         );
     }
 
     public void publishGameFinished(
-            Long gameId,
-            List<RPS.PlayerDto> winners
+            Long eventId,
+            GameRuntimeState state
     ) {
         messagingTemplate.convertAndSend(
-                "/sub/game/" + gameId + "/round",
-                RoundEvent.gameFinished(gameId, winners)
+                "/sub/game/" + eventId + "/round",
+                RoundEvent.gameFinished(eventId, state)
         );
     }
 }

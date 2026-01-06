@@ -11,17 +11,19 @@ public class RoundEvent {
 
     private String type; // ROUND_START, ROUND_RESULT, GAME_FINISHED
     private Long gameId;
+    private Long eventId;
     private int round;
     private List<String> currentPlayers;
     private List<String> confirmedWinners;
 
     public static RoundEvent roundStart(
-            Long gameId,
+            Long eventId,
             GameRuntimeState state
     ) {
         return new RoundEvent(
-                "ROUND_START",
-                gameId,
+                state.getStatus().toString(),
+                state.getGameId(),
+                eventId,
                 state.getRound(),
                 state.getCurrentPlayers()
                         .stream()
@@ -35,15 +37,16 @@ public class RoundEvent {
     }
 
     public static RoundEvent gameFinished(
-            Long gameId,
-            List<RPS.PlayerDto> winners
+            Long eventId,
+            GameRuntimeState state
     ) {
         return new RoundEvent(
-                "GAME_FINISHED",
-                gameId,
-                -1,
+                state.getStatus().toString(),
+                state.getGameId(),
+                eventId,
+                state.getRound(),
                 List.of(),
-                winners.stream()
+                state.getConfirmedWinners().stream()
                         .map(RPS.PlayerDto::nickname)
                         .toList()
         );

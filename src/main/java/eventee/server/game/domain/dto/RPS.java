@@ -55,7 +55,8 @@ public class RPS{
     public record GamePlayDto(
             PlayerDto leader,
             List<PlayerDto> players,
-            long gameId
+            long gameId,
+            long eventId
     ){}
 
 }
