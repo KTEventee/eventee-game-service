@@ -10,13 +10,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/game")
 @Tag(name = "Comment", description = "댓글 API")
 @Slf4j
 public class GameController {
@@ -28,11 +28,12 @@ public class GameController {
     public BaseResponse<?> shooting(
             HttpServletRequest request,
             @RequestBody List<String> users,
+            Authentication authentication,
             @PathVariable long eventId){
-//        Long memberId = (Long) request.getAttribute("memberId");
-//        if (memberId == null) {
-//            throw new JwtHandler(JwtErrorCode.JWT_MISSING_TOKEN);
-//        }
+        Long memberId = (Long) authentication.getPrincipal();
+        if (memberId == null) {
+            throw new JwtHandler(JwtErrorCode.JWT_MISSING_TOKEN);
+        }
         gameService.shooting(users,eventId);
         return BaseResponse.onSuccess("success");
     }
@@ -41,11 +42,12 @@ public class GameController {
     @PostMapping("/rsp/start")
     public BaseResponse<?> startRPS(
             HttpServletRequest request,
+            Authentication authentication,
             @RequestBody RPS.StartGameDto requestDto){
-//        Long memberId = (Long) request.getAttribute("memberId");
-//        if (memberId == null) {
-//            throw new JwtHandler(JwtErrorCode.JWT_MISSING_TOKEN);
-//        }
+        Long memberId = (Long) authentication.getPrincipal();
+        if (memberId == null) {
+            throw new JwtHandler(JwtErrorCode.JWT_MISSING_TOKEN);
+        }
         gameService.startRPS(requestDto);
         return BaseResponse.onSuccess("success");
     }
@@ -53,11 +55,12 @@ public class GameController {
     @PostMapping("/rsp/play")
     public BaseResponse<?> submitRPS(
             HttpServletRequest request,
+            Authentication authentication,
             @RequestBody RPS.GamePlayDto requestDto){
-//        Long memberId = (Long) request.getAttribute("memberId");
-//        if (memberId == null) {
-//            throw new JwtHandler(JwtErrorCode.JWT_MISSING_TOKEN);
-//        }
+        Long memberId = (Long) authentication.getPrincipal();
+        if (memberId == null) {
+            throw new JwtHandler(JwtErrorCode.JWT_MISSING_TOKEN);
+        }
         gameService.playRPS(requestDto);
         return BaseResponse.onSuccess("success");
     }
