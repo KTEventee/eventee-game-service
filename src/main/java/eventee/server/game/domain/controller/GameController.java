@@ -65,9 +65,5 @@ public class GameController {
         return BaseResponse.onSuccess("success");
     }
 
-//    @GetMapping("/{gameId}/status")
-//    public BaseResponse<?> gameStatus(@PathVariable Long gameId){
-//
-//    }
 
 }

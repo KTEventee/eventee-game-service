@@ -19,6 +19,9 @@ bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 .yml
+src/main/java/eventee/server/game/rspTest.html
+src/main/java/eventee/server/game/test.html
+docker-compose.yml
 
 ### IntelliJ IDEA ###
 .idea
