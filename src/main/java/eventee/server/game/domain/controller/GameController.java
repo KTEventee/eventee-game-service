@@ -24,7 +24,7 @@ public class GameController {
     //note 게임 뭐뭐하지
     private final GameService gameService;
 
-    @GetMapping("/{eventId}/cannon")
+    @PostMapping("/{eventId}/cannon")
     public BaseResponse<?> shooting(
             HttpServletRequest request,
             @RequestBody List<String> users,
